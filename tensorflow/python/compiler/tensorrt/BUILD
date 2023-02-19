@@ -3,14 +3,14 @@
 #   and provide TensorRT operators and converter package.
 #   APIs are meant to change over time.
 
-# buildifier: disable=same-origin-load
-load("//tensorflow:tensorflow.bzl", "cuda_py_test")
+load("//tensorflow:tensorflow.default.bzl", "cuda_py_test")
 
 # cuda_py_test and cuda_py_tests enable XLA tests by default. We can't
 # combine XLA with TensorRT currently and should set
 # xla_enable_strict_auto_jit to False to disable XLA tests.
 
 package(
+    # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
     default_visibility = ["//visibility:public"],
     licenses = ["notice"],
 )
@@ -94,6 +94,7 @@ cuda_py_test(
         "//tensorflow/python:client_testlib",
         "//tensorflow/python:framework_test_lib",
         "//tensorflow/python:graph_util",
+        "//tensorflow/python/compiler/tensorrt/test:test_utils",
         "//tensorflow/python/saved_model:builder",
         "//tensorflow/python/saved_model:loader",
         "//tensorflow/python/saved_model:save_options",
@@ -121,6 +122,7 @@ cuda_py_test(
         "no_rocm",
         "no_windows",
         "nomac",
+        "requires-net:external",
     ],
     xla_enable_strict_auto_jit = False,
     deps = [

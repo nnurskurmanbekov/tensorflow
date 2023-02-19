@@ -18,6 +18,7 @@ limitations under the License.
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "absl/strings/str_cat.h"
 #include "llvm/Support/Casting.h"
@@ -105,7 +106,7 @@ void GetOpCostPass::runOnOperation() {
         !llvm::isa<func::ReturnOp, func::FuncOp, CallOpInterface>(op)) {
       auto hardware = GetTargetAnnotation(op);
       if (!hardware) return;
-      float cost = GetCostForOp(op, hardware.getValue());
+      float cost = GetCostForOp(op, *hardware);
       UpdateCost(op, cost, &builder);
     }
   });

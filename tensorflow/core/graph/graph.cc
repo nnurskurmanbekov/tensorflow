@@ -39,8 +39,6 @@ limitations under the License.
 
 namespace tensorflow {
 
-const int Graph::kControlSlot = -1;
-
 // Node
 Node::NodeClass Node::GetNodeClassForOp(const std::string& ts) {
   static const absl::flat_hash_map<std::string, Node::NodeClass>*
@@ -284,7 +282,7 @@ Status Node::input_edge(int idx, const Edge** e) const {
   for (const Edge* edge : in_edges()) {
     if (edge->dst_input() == idx) {
       *e = edge;
-      return Status::OK();
+      return OkStatus();
     }
   }
 
@@ -313,7 +311,7 @@ Status Node::input_edges(std::vector<const Edge*>* input_edges) const {
       return errors::InvalidArgument("Missing edge input number: ", i);
     }
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status Node::input_node(int idx, Node** n) const {
@@ -324,14 +322,14 @@ Status Node::input_node(int idx, Node** n) const {
   } else {
     *n = e->src();
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status Node::input_node(int idx, const Node** const_n) const {
   Node* n;
   TF_RETURN_IF_ERROR(input_node(idx, &n));
   *const_n = n;
-  return Status::OK();
+  return OkStatus();
 }
 
 Status Node::input_tensor(int idx, OutputTensor* t) const {
@@ -339,7 +337,7 @@ Status Node::input_tensor(int idx, OutputTensor* t) const {
   TF_RETURN_IF_ERROR(input_edge(idx, &e));
   DCHECK(e != nullptr);
   *t = OutputTensor(e->src(), e->src_output());
-  return Status::OK();
+  return OkStatus();
 }
 
 // NodeDebugInfo
@@ -696,7 +694,7 @@ Status Graph::UpdateEdge(Node* new_src, int new_src_index, Node* dst,
   dst->MaybeCopyOnWrite();
   (*dst->props_->node_def.mutable_input())[dst_index] =
       strings::StrCat(new_src->name(), ":", new_src_index);
-  return Status::OK();
+  return OkStatus();
 }
 
 Status Graph::AddWhileInputHack(Node* new_src, int new_src_index, Node* dst) {
@@ -718,7 +716,7 @@ Status Graph::AddWhileInputHack(Node* new_src, int new_src_index, Node* dst) {
   dst->MaybeCopyOnWrite();
   dst->props_->node_def.add_input(
       strings::StrCat(new_src->name(), ":", new_src_index));
-  return Status::OK();
+  return OkStatus();
 }
 
 Status Graph::AddFunctionLibrary(const FunctionDefLibrary& fdef_lib) {
@@ -841,7 +839,7 @@ Status Graph::IsValidNode(const Node* node) const {
                                    " is different from the passed in node. "
                                    "Does it belong to a different graph?");
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status Graph::IsValidOutputTensor(const Node* node, int idx) const {
@@ -852,7 +850,7 @@ Status Graph::IsValidOutputTensor(const Node* node, int idx) const {
                               "', num of outputs: ", node->num_outputs(),
                               ") does not have ", "output ", idx);
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status Graph::IsValidInputTensor(const Node* node, int idx) const {
@@ -863,7 +861,7 @@ Status Graph::IsValidInputTensor(const Node* node, int idx) const {
                               "', num of inputs: ", node->num_inputs(),
                               ") does not have ", "input ", idx);
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Node* Graph::AllocateNode(std::shared_ptr<NodeProperties> props,
@@ -932,7 +930,7 @@ Status Graph::AddWhileContext(StringPiece frame_name,
                                    "' already exists");
   }
   *result = &pair.first->second;
-  return Status::OK();
+  return OkStatus();
 }
 
 std::unordered_map<std::string, Node*> Graph::BuildNodeNameIndex() const {

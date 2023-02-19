@@ -15,17 +15,17 @@ limitations under the License.
 
 #include "tensorflow/compiler/xla/service/conditional_to_select.h"
 
+#include "tensorflow/compiler/xla/hlo/ir/hlo_computation.h"
+#include "tensorflow/compiler/xla/hlo/ir/hlo_instruction.h"
+#include "tensorflow/compiler/xla/hlo/ir/hlo_opcode.h"
 #include "tensorflow/compiler/xla/service/call_graph.h"
 #include "tensorflow/compiler/xla/service/call_inliner.h"
-#include "tensorflow/compiler/xla/service/hlo_computation.h"
 #include "tensorflow/compiler/xla/service/hlo_creation_utils.h"
-#include "tensorflow/compiler/xla/service/hlo_instruction.h"
-#include "tensorflow/compiler/xla/service/hlo_opcode.h"
 #include "tensorflow/compiler/xla/status_macros.h"
 #include "tensorflow/compiler/xla/types.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status.h"
-#include "tensorflow/core/platform/logging.h"
+#include "tensorflow/tsl/platform/errors.h"
+#include "tensorflow/tsl/platform/logging.h"
+#include "tensorflow/tsl/platform/status.h"
 
 namespace xla {
 
@@ -66,7 +66,9 @@ static StatusOr<bool> DoConditionalToSelect(HloInstruction* conditional) {
   return true;
 }
 
-StatusOr<bool> ConditionalToSelect::Run(HloModule* module) {
+StatusOr<bool> ConditionalToSelect::Run(
+    HloModule* module,
+    const absl::flat_hash_set<absl::string_view>& execution_threads) {
   std::unique_ptr<CallGraph> call_graph = CallGraph::Build(module);
   bool did_mutate = false;
   VLOG(1) << "Running conditional-to-select pass";
@@ -74,7 +76,7 @@ StatusOr<bool> ConditionalToSelect::Run(HloModule* module) {
       call_graph->VisitNodes([&](const CallGraphNode& node) -> Status {
         std::vector<HloInstruction*> ToInline;
         if (node.context() != CallContext::kEmbedded) {
-          return Status::OK();
+          return OkStatus();
         }
         for (const CallSite& callsite : node.callsites()) {
           if (callsite.instruction()->opcode() == HloOpcode::kConditional) {
@@ -85,7 +87,7 @@ StatusOr<bool> ConditionalToSelect::Run(HloModule* module) {
             did_mutate |= result;
           }
         }
-        return Status::OK();
+        return OkStatus();
       }));
   return did_mutate;
 }

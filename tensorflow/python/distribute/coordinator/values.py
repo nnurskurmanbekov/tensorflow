@@ -173,10 +173,10 @@ class RemoteValueImpl(RemoteValue):
     self._status_available_event = threading.Event()
     self._status = RemoteValueStatus.NOT_READY
 
-  def _set_aborted(self):
+  def _set_aborted(self, error):
     self._status = RemoteValueStatus.ABORTED
     self._values = None
-    self._error = None
+    self._error = error
 
     # Wake up any waiting thread and clear the event.
     self._status_available_event.set()
@@ -192,10 +192,10 @@ class RemoteValueImpl(RemoteValue):
     self._error = None
     self._status_available_event.set()
 
-  def _set_error(self, exception):
+  def _set_error(self, error):
     self._status = RemoteValueStatus.READY
     self._values = None
-    self._error = exception
+    self._error = error
     self._status_available_event.set()
 
   def _get_values(self):
@@ -338,6 +338,27 @@ class PerWorkerDatasetFromDatasetFunction(object):
     self._dataset_fn = dataset_fn
     self._coordinator = coordinator
     self._element_spec = None
+
+  def build(self):
+    """Trigger dataset creation on workers without creating an iterator.
+
+    Returns:
+      A PerWorkerValues object containing a tuple of RemoteValues, themselves
+      containing the built Dataset for each worker
+    """
+    def _create_per_worker_dataset():
+      dataset = self._dataset_fn()
+      return dataset
+
+    # pylint: disable=protected-access
+    per_worker_dataset = self._coordinator._create_per_worker_resources(
+        _create_per_worker_dataset)
+    # hack type_spec of RemoteValues
+    for dataset_remote_value in per_worker_dataset._values:
+      dataset_remote_value._type_spec = dataset_ops.DatasetSpec(
+          self._dataset_fn.structured_outputs.element_spec)
+
+    return per_worker_dataset
 
   def __iter__(self):
     # We would like users to create iterators outside `tf.function`s so that we

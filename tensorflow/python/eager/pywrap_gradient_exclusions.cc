@@ -50,7 +50,7 @@ auto OpGradientInfoInit(const T &a) {
 
 absl::optional<tensorflow::gtl::FlatSet<int>> OpGradientUnusedInputIndices(
     const tensorflow::string &op_name) {
-  static std::array<OpIndexInfo, 364> a = {{
+  static std::array<OpIndexInfo, 365> a = {{
       {"Acosh"},
       {"AllToAll", 1, {0}},
       {"ApproximateEqual"},
@@ -337,6 +337,7 @@ absl::optional<tensorflow::gtl::FlatSet<int>> OpGradientUnusedInputIndices(
       {"StatelessParameterizedTruncatedNormal", 1, {1}},
       {"StatelessRandomBinomial"},
       {"StatelessRandomGammaV2", 1, {1}},
+      {"StatelessRandomGammaV3", 3, {1, 2, 3}},
       {"StatelessRandomNormal"},
       {"StatelessRandomNormalV2"},
       {"StatelessRandomPoisson"},
@@ -394,7 +395,7 @@ absl::optional<tensorflow::gtl::FlatSet<int>> OpGradientUnusedInputIndices(
       {"TensorScatterAdd", 2, {0, 2}},
       {"TensorScatterSub", 2, {0, 2}},
       {"TensorScatterUpdate", 1, {0}},
-      {"TensorStridedSliceUpdate", 2, {0, 4}},
+      {"TensorStridedSliceUpdate", 1, {0}},
       {"TensorSummary"},
       {"TensorSummaryV2"},
       {"TextLineReader"},

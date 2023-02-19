@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 #include "tensorflow/compiler/mlir/lite/transforms/dilated_conv.h"
 
+#include <utility>
+
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // from @llvm-project
 #include "tensorflow/compiler/mlir/lite/ir/tfl_ops.h"
 #include "tensorflow/compiler/mlir/lite/transforms/passes.h"
@@ -22,11 +24,11 @@ namespace mlir {
 namespace TFL {
 namespace {
 
-#define GEN_PASS_CLASSES
+#define GEN_PASS_DEF_IDENTIFYDILATEDCONVPASS
 #include "tensorflow/compiler/mlir/lite/transforms/passes.h.inc"
 
 struct IdentifyDilatedConvPass
-    : public IdentifyDilatedConvPassBase<IdentifyDilatedConvPass> {
+    : public impl::IdentifyDilatedConvPassBase<IdentifyDilatedConvPass> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(IdentifyDilatedConvPass)
   void runOnOperation() override;
 };

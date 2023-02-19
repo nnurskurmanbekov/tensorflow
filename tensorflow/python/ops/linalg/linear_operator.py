@@ -26,6 +26,7 @@ from tensorflow.python.framework import tensor_shape
 from tensorflow.python.framework import tensor_spec
 from tensorflow.python.framework import tensor_util
 from tensorflow.python.framework import type_spec
+from tensorflow.python.framework import type_spec_registry
 from tensorflow.python.module import module
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import check_ops
@@ -38,10 +39,11 @@ from tensorflow.python.ops.linalg import linear_operator_algebra
 from tensorflow.python.ops.linalg import linear_operator_util
 from tensorflow.python.ops.linalg import slicing
 from tensorflow.python.platform import tf_logging as logging
-from tensorflow.python.training.tracking import data_structures
+from tensorflow.python.trackable import data_structures
 from tensorflow.python.util import deprecation
 from tensorflow.python.util import dispatch
 from tensorflow.python.util import nest
+from tensorflow.python.util import variable_utils
 from tensorflow.python.util.tf_export import tf_export
 
 __all__ = ["LinearOperator"]
@@ -1192,6 +1194,28 @@ class LinearOperator(
     # `@make_composite_tensor` decorator.
     pass
 
+  def _convert_variables_to_tensors(self):
+    """Recursively converts ResourceVariables in the LinearOperator to Tensors.
+
+    The usage of `self._type_spec._from_components` violates the contract of
+    `CompositeTensor`, since it is called on a different nested structure
+    (one containing only `Tensor`s) than `self.type_spec` specifies (one that
+    may contain `ResourceVariable`s). Since `LinearOperator`'s
+    `_from_components` method just passes the contents of the nested structure
+    to `__init__` to rebuild the operator, and any `LinearOperator` that may be
+    instantiated with `ResourceVariables` may also be instantiated with
+    `Tensor`s, this usage is valid.
+
+    Returns:
+      tensor_operator: `self` with all internal Variables converted to Tensors.
+    """
+    # pylint: disable=protected-access
+    components = self._type_spec._to_components(self)
+    tensor_components = variable_utils.convert_variables_to_tensors(
+        components)
+    return self._type_spec._from_components(tensor_components)
+    # pylint: enable=protected-access
+
   def __getitem__(self, slices):
     return slicing.batch_slice(self, params_overrides={}, slices=slices)
 
@@ -1316,7 +1340,7 @@ def make_composite_tensor(cls, module_name="tf.linalg"):
 
   spec_name = "{}Spec".format(cls.__name__)
   spec_type = type(spec_name, (_LinearOperatorSpec,), {"value_type": cls})
-  type_spec.register("{}.{}".format(module_name, spec_name))(spec_type)
+  type_spec_registry.register("{}.{}".format(module_name, spec_name))(spec_type)
   cls._type_spec = property(spec_type.from_operator)  # pylint: disable=protected-access
   return cls
 

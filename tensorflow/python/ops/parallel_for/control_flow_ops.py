@@ -38,6 +38,7 @@ from tensorflow.python.platform import tf_logging as logging
 from tensorflow.python.util import nest
 from tensorflow.python.util import tf_decorator
 from tensorflow.python.util import tf_inspect
+from tensorflow.python.util import variable_utils
 from tensorflow.python.util.tf_export import tf_export
 
 
@@ -81,7 +82,7 @@ def for_loop(loop_fn, loop_fn_dtypes, iters, parallel_iterations=None):
       # TODO(agarwal): support returning Operation objects from loop_fn.
       if out is not None:
         # out may be a ref tensor, wrap it in identity to get a non-ref tensor.
-        ta = ta.write(i, array_ops.expand_dims(out, 0))
+        ta = ta.write(i, out)
       outputs.append(ta)
     return tuple([i + 1] + outputs)
 
@@ -98,8 +99,10 @@ def for_loop(loop_fn, loop_fn_dtypes, iters, parallel_iterations=None):
 
   # TODO(rachelim): enable this for sparse tensors
 
-  output = [None if is_none else ta.concat()
-            for ta, is_none in zip(ta_list, is_none_list)]
+  output = [
+      None if is_none else ta.stack()
+      for ta, is_none in zip(ta_list, is_none_list)
+  ]
   assert len(output) in (0, len(flat_loop_fn_dtypes))
   if not output:
     # This may happen for the case where iters == 0.
@@ -403,7 +406,6 @@ def _pfor_impl(loop_fn,
         output.set_shape(
             tensor_shape.TensorShape([iters_value]).concatenate(
                 original_output.shape))
-
   return nest.map_structure_up_to(
       loop_fn_outputs,
       functools.partial(_composite_from_tensors, batch_size=iters_value),
@@ -534,6 +536,7 @@ def vectorized_map(fn, elems, fallback_to_while_loop=True, warn=True):
   Raises:
     ValueError: If vectorization fails and fallback_to_while_loop is False.
   """
+  elems = variable_utils.convert_variables_to_tensors(elems)
   elems = nest.map_structure(ops.convert_to_tensor,
                              elems,
                              expand_composites=True)

@@ -88,8 +88,10 @@ function generate_tflite_aar {
 
   # Build the aar package.
   popd > /dev/null
-  bazel ${CACHE_DIR_FLAG} build -c opt --cxxopt='--std=c++14' \
+  # TODO(b/254278688): Enable 'xnn_enable_arm_fp16' with toolchain upgrade.
+  bazel ${CACHE_DIR_FLAG} build -c opt --cxxopt='--std=c++17' \
         --fat_apk_cpu=${TARGET_ARCHS} \
+        --define=xnn_enable_arm_fp16=false \
         --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
         //tmp:tensorflow-lite
 
@@ -121,12 +123,11 @@ function generate_flex_aar {
   cp ${ROOT_DIR}/tensorflow/lite/java/proguard.flags .
   popd
 
-  # TODO(b/229868128): Remove the workaround to fix libtensorflow_framework.so.2 loading issue.
-  export LD_LIBRARY_PATH=${ROOT_DIR}/bazel-bin/tensorflow:${LD_LIBRARY_PATH}
   # Build the aar package.
-  bazel ${CACHE_DIR_FLAG} build -c opt --cxxopt='--std=c++14' \
-      --config=monolithic \
+  # TODO(b/254278688): Enable 'xnn_enable_arm_fp16' with toolchain upgrade.
+  bazel ${CACHE_DIR_FLAG} build -c opt --cxxopt='--std=c++17' \
       --fat_apk_cpu=${TARGET_ARCHS} \
+      --define=xnn_enable_arm_fp16=false \
       --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
       //tmp:tensorflow-lite-select-tf-ops
 
@@ -180,10 +181,12 @@ else
 fi
 
 # Build the standard aar package of no models provided.
+# TODO(b/254278688): Enable 'xnn_enable_arm_fp16' with toolchain upgrade.
 if [ -z ${FLAG_MODELS} ]; then
-  bazel ${CACHE_DIR_FLAG} build -c opt --cxxopt='--std=c++14' \
+  bazel ${CACHE_DIR_FLAG} build -c opt --cxxopt='--std=c++17' \
     --config=monolithic \
     --fat_apk_cpu=${TARGET_ARCHS} \
+    --define=xnn_enable_arm_fp16=false \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
     //tensorflow/lite/java:tensorflow-lite
 

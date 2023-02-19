@@ -1468,6 +1468,21 @@ class RaggedTensorTest(test_util.TensorFlowTestCase, parameterized.TestCase):
         for i in range(3):
           self.assertAllEqual(sess.run(rt[i]), out)
 
+  def testToVariantInvalidParams(self):
+    self.assertRaisesRegex((ValueError, errors.InvalidArgumentError),
+                           r'be rank 1 but is rank 0',
+                           gen_ragged_conversion_ops.ragged_tensor_to_variant,
+                           rt_nested_splits=[0, 1, 2],
+                           rt_dense_values=[0, 1, 2],
+                           batched_input=True)
+
+    self.assertRaisesRegex((ValueError, errors.InvalidArgumentError),
+                           r'be rank 1 but is rank 2',
+                           gen_ragged_conversion_ops.ragged_tensor_to_variant,
+                           rt_nested_splits=[[[0]], [[1]], [[2]]],
+                           rt_dense_values=[0, 1, 2],
+                           batched_input=True)
+
   def testFromVariantInvalidParams(self):
     rt = ragged_factory_ops.constant([[0], [1], [2], [3]])
     batched_variant = rt._to_variant(batched_input=True)
@@ -1897,18 +1912,19 @@ class RaggedTensorTest(test_util.TensorFlowTestCase, parameterized.TestCase):
   @parameterized.named_parameters([
       ('Shape_2_R',
        [[1, 2], [3, 4, 5]],
-       np.array([int32array([1, 2]), int32array([3, 4, 5])])),
+       np.array([int32array([1, 2]), int32array([3, 4, 5])], dtype=object)),
       ('Shape_2_2',
        [[1, 2], [3, 4]],
        np.array([[1, 2], [3, 4]])),
       ('Shape_2_R_2',
        [[[1, 2], [3, 4]], [[5, 6]]],
-       np.array([int32array([[1, 2], [3, 4]]), int32array([[5, 6]])])),
+       np.array([int32array([[1, 2], [3, 4]]), int32array([[5, 6]])],
+                dtype=object)),
       ('Shape_3_2_R',
        [[[1], []], [[2, 3], [4]], [[], [5, 6, 7]]],
        np.array([[int32array([1]), int32array([])],
                  [int32array([2, 3]), int32array([4])],
-                 [int32array([]), int32array([5, 6, 7])]])),
+                 [int32array([]), int32array([5, 6, 7])]], dtype=object)),
       ('Shape_0_R',
        ragged_factory_ops.constant_value([], ragged_rank=1, dtype=np.int32),
        np.zeros([0, 0], dtype=np.int32)),

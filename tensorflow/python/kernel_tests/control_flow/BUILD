@@ -1,12 +1,10 @@
 # Tests of TensorFlow control flow ops written using the Python API.
 
-load("//tensorflow:tensorflow.bzl", "cuda_py_test")
-
-# buildifier: disable=same-origin-load
-load("//tensorflow:tensorflow.bzl", "tf_py_test")
+load("//tensorflow:tensorflow.default.bzl", "cuda_py_test", "tf_py_test")
+load("//tensorflow/core/platform:build_config_root.bzl", "tf_additional_xla_deps_py")
 
 package(
-    default_visibility = ["//tensorflow:internal"],
+    # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
     licenses = ["notice"],
 )
 
@@ -30,7 +28,7 @@ cuda_py_test(
         "//tensorflow/python:training",
         "//tensorflow/python:while_v2",
         "//tensorflow/python/compat",
-    ],
+    ] + tf_additional_xla_deps_py(),
 )
 
 cuda_py_test(

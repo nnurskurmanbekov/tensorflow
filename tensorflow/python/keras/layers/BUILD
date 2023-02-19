@@ -2,6 +2,7 @@
 #   Contains the Keras layers (internal TensorFlow version).
 
 package(
+    # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
     # TODO(scottzhu): Remove non-keras deps from TF.
     default_visibility = [
         "//tensorflow/python/distribute:__pkg__",
@@ -141,7 +142,7 @@ py_library(
         "//tensorflow/python/keras/utils:engine_utils",
         "//tensorflow/python/keras/utils:generic_utils",
         "//tensorflow/python/keras/utils:tf_utils",
-        "//tensorflow/python/training/tracking:base",
+        "//tensorflow/python/trackable:base",
         "//third_party/py/numpy",
     ],
 )
@@ -260,8 +261,8 @@ py_library(
         "//tensorflow/python/keras/initializers",
         "//tensorflow/python/keras/utils:generic_utils",
         "//tensorflow/python/keras/utils:tf_utils",
-        "//tensorflow/python/training/tracking:base",
-        "//tensorflow/python/training/tracking:data_structures",
+        "//tensorflow/python/trackable:base",
+        "//tensorflow/python/trackable:data_structures",
         "//tensorflow/tools/docs:doc_controls",
         "//third_party/py/numpy",
     ],

@@ -483,9 +483,9 @@ FunctionLibraryRuntimeImpl::FunctionLibraryRuntimeImpl(
                        ? ProcessFunctionLibraryRuntime::kDefaultFLRDevice
                        : device_->name()),
       next_handle_(0),
-      items_(absl::make_unique<
+      items_(std::make_unique<
              absl::flat_hash_map<Handle, std::unique_ptr<Item>>>()),
-      function_handle_cache_(absl::make_unique<FunctionHandleCache>(this)),
+      function_handle_cache_(std::make_unique<FunctionHandleCache>(this)),
       parent_(parent) {
   get_func_sig_ = [this](const string& op, const OpDef** sig) {
     return base_lib_def_->LookUpOpDef(op, sig);
@@ -535,7 +535,7 @@ class CallOp : public AsyncOpKernel {
     OP_REQUIRES_ASYNC(ctx, lib != nullptr,
                       errors::Internal("No function library is provided."),
                       done);
-    FunctionLibraryRuntime::Options opts;
+    FunctionLibraryRuntime::Options opts(ctx->step_id());
     opts.rendezvous = ctx->rendezvous();
     opts.cancellation_manager = ctx->cancellation_manager();
     opts.step_container = ctx->step_container();
@@ -597,7 +597,7 @@ Status FunctionLibraryRuntimeImpl::GetRetTypes(Handle h,
   }
   const FunctionBody* fbody = GetFunctionBody(h);
   *ret_types = fbody->ret_types;
-  return Status::OK();
+  return OkStatus();
 }
 
 Status FunctionLibraryRuntimeImpl::CreateKernel(
@@ -719,7 +719,7 @@ Status FunctionLibraryRuntimeImpl::InstantiateSymbolicGradient(
     CHECK_NOTNULL(f_body);
     *g_body = SymbolicGradient(*f_body);
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 bool FunctionLibraryRuntimeImpl::IsLocalTarget(
@@ -779,7 +779,7 @@ Status FunctionLibraryRuntimeImpl::Instantiate(
                                 " not found in items.");
       }
       ++item_handle->second->instantiation_counter;
-      return Status::OK();
+      return OkStatus();
     }
   }
 
@@ -839,7 +839,7 @@ Status FunctionLibraryRuntimeImpl::Instantiate(
     TF_RETURN_IF_ERROR(GetOrCreateItem(local_handle, &item));
   }
 
-  return Status::OK();
+  return OkStatus();
 }
 
 Status FunctionLibraryRuntimeImpl::ReleaseHandle(Handle handle) {
@@ -852,7 +852,7 @@ Status FunctionLibraryRuntimeImpl::ReleaseHandle(Handle handle) {
   {
     mutex_lock l(mu_);
     // Return directly if all items has already been released.
-    if (items_ == nullptr) return Status::OK();
+    if (items_ == nullptr) return OkStatus();
 
     auto it = items_->find(h);
     if (it == items_->end()) {
@@ -935,7 +935,7 @@ Status FunctionLibraryRuntimeImpl::CreateItem(Item** item) {
   }
   const FunctionLibraryDefinition* lib_def =
       flr->GetFunctionLibraryDefinition();
-  auto g = absl::make_unique<Graph>(lib_def);
+  auto g = std::make_unique<Graph>(lib_def);
   CopyGraph(*fbody->graph, g.get());
 
   PruneFunctionBody(fbody->fdef, g.get());
@@ -985,7 +985,7 @@ Status FunctionLibraryRuntimeImpl::CreateItem(Item** item) {
       (*item)->exec = exec.release();
     }
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status FunctionLibraryRuntimeImpl::GetOrCreateItem(LocalHandle local_handle,
@@ -999,7 +999,7 @@ Status FunctionLibraryRuntimeImpl::GetOrCreateItem(LocalHandle local_handle,
     }
     *item = iter->second.get();
     if ((*item)->exec != nullptr) {
-      return Status::OK();
+      return OkStatus();
     }
   }
   // NOTE: We need to call CreateItem out of mu_ because creating an
@@ -1012,6 +1012,7 @@ void FunctionLibraryRuntimeImpl::ExecutorArgsFromOptions(
     Executor::Args* exec_args) {
   // Inherit the step_id from the caller.
   exec_args->step_id = run_opts.step_id;
+  exec_args->function_trace_id = random::New64();
   exec_args->rendezvous = run_opts.rendezvous;
   exec_args->stats_collector = run_opts.stats_collector;
   exec_args->cancellation_manager = run_opts.cancellation_manager;
@@ -1177,17 +1178,17 @@ void FunctionLibraryRuntimeImpl::Run(const Options& opts, Handle handle,
     return;
   }
 
-  profiler::TraceMeProducer activity(
-      // To TraceMeConsumers in ExecutorState::Process/Finish.
-      [&opts] {
-        return profiler::TraceMeEncode("FunctionRun",
-                                       {{"id", opts.step_id}, {"_r", 1}});
-      },
-      profiler::ContextType::kTfExecutor, opts.step_id,
-      profiler::TraceMeLevel::kInfo);
-
   Executor::Args exec_args;
   ExecutorArgsFromOptions(run_opts, frame, &exec_args);
+
+  profiler::TraceMeProducer activity(
+      // To TraceMeConsumers in ExecutorState::Process/Finish.
+      [&run_opts] {
+        return profiler::TraceMeEncode("FunctionRun",
+                                       {{"id", run_opts.step_id}, {"_r", 1}});
+      },
+      profiler::ContextType::kTfExecutor, *exec_args.function_trace_id,
+      profiler::TraceMeLevel::kInfo);
 
   bool allow_dead_tensors = run_opts.allow_dead_tensors;
   item->exec->RunAsync(
@@ -1250,17 +1251,17 @@ void FunctionLibraryRuntimeImpl::Run(const Options& opts, Handle handle,
   }
   DCHECK(run_opts.runner != nullptr);
 
+  Executor::Args exec_args;
+  ExecutorArgsFromOptions(run_opts, frame, &exec_args);
   profiler::TraceMeProducer activity(
       // To TraceMeConsumers in ExecutorState::Process/Finish.
       [&opts] {
         return profiler::TraceMeEncode("FunctionRun",
                                        {{"id", opts.step_id}, {"_r", 1}});
       },
-      profiler::ContextType::kTfExecutor, opts.step_id,
+      profiler::ContextType::kTfExecutor, *exec_args.function_trace_id,
       profiler::TraceMeLevel::kInfo);
 
-  Executor::Args exec_args;
-  ExecutorArgsFromOptions(run_opts, frame, &exec_args);
   item->exec->RunAsync(exec_args, std::move(done));
 }
 
@@ -1282,7 +1283,7 @@ Status FunctionLibraryRuntimeImpl::PrepareRunSync(
 
   if (run_opts->create_rendezvous) {
     *out_rendezvous =
-        absl::make_unique<PrivateIntraProcessRendezvous>(device_mgr_);
+        std::make_unique<PrivateIntraProcessRendezvous>(device_mgr_);
     run_opts->rendezvous = out_rendezvous->get();
     run_opts->create_rendezvous = false;
   }
@@ -1291,7 +1292,7 @@ Status FunctionLibraryRuntimeImpl::PrepareRunSync(
       device_name_, handle, /*include_multi_device=*/true);
   if (local_handle == kInvalidLocalHandle) {
     *out_item = nullptr;
-    return Status::OK();
+    return OkStatus();
   }
 
   TF_RETURN_IF_ERROR(GetOrCreateItem(local_handle, out_item));
@@ -1301,7 +1302,7 @@ Status FunctionLibraryRuntimeImpl::PrepareRunSync(
   }
   DCHECK(run_opts->runner != nullptr);
 
-  return Status::OK();
+  return OkStatus();
 }
 
 Status FunctionLibraryRuntimeImpl::RunSync(Options opts, Handle handle,
@@ -1368,7 +1369,7 @@ Status FunctionLibraryRuntimeImpl::Clone(
                                     skip_flib_def));
   *out_flr = (*out_pflr)->GetFLR(device_->name());
   if (*out_flr != nullptr) {
-    return Status::OK();
+    return OkStatus();
   } else {
     return errors::Internal("Cloning FunctionLibraryRuntime failed.");
   }

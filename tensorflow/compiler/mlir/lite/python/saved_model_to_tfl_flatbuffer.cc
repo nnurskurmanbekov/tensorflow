@@ -15,6 +15,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/lite/python/saved_model_to_tfl_flatbuffer.h"
 
 #include <memory>
+#include <string>
 #include <utility>
 
 #include "absl/types/span.h"
@@ -45,7 +46,7 @@ limitations under the License.
 #include "tensorflow/lite/toco/model_flags.pb.h"
 #include "tensorflow/lite/toco/toco_flags.pb.h"
 #include "tensorflow/lite/toco/types.pb.h"
-#include "tensorflow/stream_executor/lib/statusor.h"
+#include "tensorflow/tsl/platform/statusor.h"
 
 namespace tensorflow {
 
@@ -122,7 +123,7 @@ Status HandleInputOutputArraysWithModule(
                                      ") does not exist in the given graph");
     }
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status ConvertSavedModelToTFLiteFlatBuffer(const toco::ModelFlags& model_flags,
@@ -197,6 +198,7 @@ Status ConvertSavedModelToTFLiteFlatBuffer(const toco::ModelFlags& model_flags,
   pass_config.preserve_assert_op = toco_flags.preserve_assert_op();
   pass_config.guarantee_all_funcs_one_use =
       toco_flags.guarantee_all_funcs_one_use();
+  pass_config.enable_stablehlo_conversion = toco_flags.convert_to_stablehlo();
 
   // TODO(b/153507667): Pass the session object when importing logic is removed.
   auto status = internal::ConvertMLIRToTFLiteFlatBuffer(

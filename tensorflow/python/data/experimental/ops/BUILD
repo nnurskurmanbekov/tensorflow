@@ -1,4 +1,5 @@
 package(
+    # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
     default_visibility = ["//tensorflow:internal"],
     licenses = ["notice"],
 )
@@ -60,14 +61,27 @@ py_library(
     ],
     srcs_version = "PY3",
     deps = [
+        ":compression_ops",
         "//tensorflow/python:experimental_dataset_ops_gen",
         "//tensorflow/python:framework_ops",
-        "//tensorflow/python/compat",
+        "//tensorflow/python/data/experimental/service:_pywrap_server_lib",
         "//tensorflow/python/data/experimental/service:_pywrap_utils",
         "//tensorflow/python/data/ops:dataset_ops",
         "//tensorflow/python/data/ops:options",
         "//tensorflow/python/data/ops:structured_function",
         "//tensorflow/python/data/util:nest",
+    ],
+)
+
+py_library(
+    name = "distributed_save_op",
+    srcs = [
+        "distributed_save_op.py",
+    ],
+    deps = [
+        "//tensorflow/python:experimental_dataset_ops_gen",
+        "//tensorflow/python/eager:context",
+        "//tensorflow/python/util",
     ],
 )
 
@@ -101,10 +115,17 @@ py_library(
     srcs = ["error_ops.py"],
     srcs_version = "PY3",
     deps = [
-        "//tensorflow/python:experimental_dataset_ops_gen",
-        "//tensorflow/python/data/ops:dataset_ops",
         "//tensorflow/python/data/util:nest",
         "//tensorflow/python/data/util:sparse",
+    ],
+)
+
+py_library(
+    name = "from_list",
+    srcs = ["from_list.py"],
+    srcs_version = "PY3",
+    deps = [
+        "//tensorflow/python:experimental_dataset_ops_gen",
     ],
 )
 
@@ -161,10 +182,10 @@ py_library(
     ],
     srcs_version = "PY3",
     deps = [
-        "//tensorflow/python:checkpoint_management",
         "//tensorflow/python:experimental_dataset_ops_gen",
+        "//tensorflow/python/checkpoint",
+        "//tensorflow/python/checkpoint:checkpoint_management",
         "//tensorflow/python/data/ops:dataset_ops",
-        "//tensorflow/python/training/tracking:util",
     ],
 )
 
@@ -176,11 +197,11 @@ py_library(
     srcs_version = "PY3",
     deps = [
         "//tensorflow/python:basic_session_run_hooks",
-        "//tensorflow/python:checkpoint_management",
         "//tensorflow/python:dataset_ops_gen",
         "//tensorflow/python:framework_ops",
         "//tensorflow/python:saver",
         "//tensorflow/python:session_run_hook",
+        "//tensorflow/python/checkpoint:checkpoint_management",
         "//tensorflow/python/data/ops:iterator_ops",
         "//tensorflow/python/data/ops:optional_ops",
     ],
@@ -275,6 +296,7 @@ py_library(
         "//tensorflow/python:framework_ops",
         "//tensorflow/python:util",
         "//tensorflow/python/data/ops:dataset_ops",
+        "//tensorflow/python/data/ops:random_op",
         "//tensorflow/python/data/util:structure",
     ],
 )
@@ -302,6 +324,7 @@ py_library(
         "//tensorflow/python:tensor_shape",
         "//tensorflow/python:util",
         "//tensorflow/python/data/ops:dataset_ops",
+        "//tensorflow/python/data/ops:map_op",
         "//tensorflow/python/data/ops:readers",
         "//tensorflow/python/data/util:convert",
         "//tensorflow/python/data/util:nest",
@@ -334,8 +357,18 @@ py_library(
         "shuffle_ops.py",
     ],
     srcs_version = "PY3",
+    visibility = [
+        # TODO(jsimsa): Remove non-default visibility exception when `index_shuffle` is made public.
+        "//third_party/py/tensorflow_datasets:__subpackages__",
+        "//tensorflow:internal",
+    ],
     deps = [
+        ":random_access",
+        "//tensorflow/python:array_ops",
+        "//tensorflow/python:math_ops",
+        "//tensorflow/python:stateless_random_ops",
         "//tensorflow/python/data/ops:dataset_ops",
+        "//third_party/py/numpy",
     ],
 )
 
@@ -407,8 +440,10 @@ py_library(
         ":counter",
         ":data_service_ops",
         ":distribute",
+        ":distributed_save_op",
         ":enumerate_ops",
         ":error_ops",
+        ":from_list",
         ":get_single_element",
         ":grouping",
         ":interleave_ops",
@@ -428,6 +463,7 @@ py_library(
         "//tensorflow/python:dataset_ops_gen",
         "//tensorflow/python:util",
         "//tensorflow/python/data/ops:dataset_ops",
+        "//tensorflow/python/data/ops:debug_mode",
         "//tensorflow/python/data/util:nest",
     ],
 )

@@ -18,14 +18,14 @@ The end-to-end workflow involves the following steps:
 
 1.  [Train a model](#train_a_model) (in Python): A jupyter notebook to train,
     convert and optimize a model for on-device use.
-2.  [Run inference](#run_inference) (in C++ 11): An end-to-end unit test that
+2.  [Run inference](#run_inference) (in C++ 17): An end-to-end unit test that
     runs inference on the model using the [C++ library](library.md).
 
 ## Get a supported device
 
 The example application we'll be using has been tested on the following devices:
 
-*   [Arduino Nano 33 BLE Sense](https://store.arduino.cc/usa/nano-33-ble-sense-with-headers)
+*   [Arduino Nano 33 BLE Sense](https://store-usa.arduino.cc/products/arduino-nano-33-ble-sense-with-headers)
     (using Arduino IDE)
 *   [SparkFun Edge](https://www.sparkfun.com/products/15170) (building directly
     from source)

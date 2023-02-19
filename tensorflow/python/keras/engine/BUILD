@@ -2,6 +2,7 @@
 #   Contains the Keras engine API (internal TensorFlow version).
 
 package(
+    # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
     # TODO(scottzhu): Remove non-keras deps from TF.
     default_visibility = [
         "//tensorflow/python:__pkg__",
@@ -82,7 +83,7 @@ py_library(
         "//tensorflow/python/saved_model:constants",
         "//tensorflow/python/saved_model:loader",
         "//tensorflow/python/tpu:tpu_lib",
-        "//tensorflow/python/training/tracking:data_structures",
+        "//tensorflow/python/trackable:data_structures",
         "//tensorflow/tools/docs:doc_controls",
     ],
 )
@@ -162,10 +163,10 @@ py_library(
         "//tensorflow/python/keras/utils:version_utils",
         "//tensorflow/python/module",
         "//tensorflow/python/ops/ragged:ragged_tensor",
-        "//tensorflow/python/training/tracking",
-        "//tensorflow/python/training/tracking:base",
-        "//tensorflow/python/training/tracking:data_structures",
-        "//tensorflow/python/training/tracking:layer_utils",
+        "//tensorflow/python/trackable:autotrackable",
+        "//tensorflow/python/trackable:base",
+        "//tensorflow/python/trackable:data_structures",
+        "//tensorflow/python/trackable:layer_utils",
         "//tensorflow/tools/docs:doc_controls",
     ],
 )

@@ -1,8 +1,9 @@
 # tf.data service tests.
 
-load("//tensorflow:tensorflow.bzl", "tf_py_test")
+load("//tensorflow:tensorflow.default.bzl", "tf_py_test")
 
 package(
+    # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
     default_visibility = ["//tensorflow:internal"],
     licenses = ["notice"],
 )
@@ -30,10 +31,31 @@ tf_py_test(
 )
 
 tf_py_test(
+    name = "snapshot_ft_test",
+    size = "medium",
+    srcs = ["snapshot_ft_test.py"],
+    shard_count = 8,
+    # TODO(b/250921378): Fix sanitizers.
+    tags = [
+        "noasan",
+        "nomsan",
+        "notsan",
+    ],
+    deps = [
+        ":test_base",
+        "//tensorflow/python:platform_test",
+        "//tensorflow/python/data/experimental/ops:distributed_save_op",
+        "//tensorflow/python/data/kernel_tests:test_base",
+        "//tensorflow/python/data/ops:dataset_ops",
+        "//tensorflow/python/framework:combinations",
+    ],
+)
+
+tf_py_test(
     name = "coordinated_read_ft_test",
     size = "medium",
     srcs = ["coordinated_read_ft_test.py"],
-    shard_count = 16,
+    shard_count = 8,
     deps = [
         ":test_base",
         "//tensorflow:tensorflow_py",
@@ -50,7 +72,7 @@ tf_py_test(
     name = "coordinated_read_test",
     size = "medium",
     srcs = ["coordinated_read_test.py"],
-    shard_count = 16,
+    shard_count = 8,
     deps = [
         ":test_base",
         "//tensorflow:tensorflow_py",
@@ -109,7 +131,6 @@ tf_py_test(
         "//tensorflow/python:math_ops",
         "//tensorflow/python:platform_test",
         "//tensorflow/python:random_ops",
-        "//tensorflow/python/compat",
         "//tensorflow/python/data",
         "//tensorflow/python/data/experimental/ops:data_service_ops",
         "//tensorflow/python/data/experimental/ops:testing",
@@ -181,7 +202,7 @@ tf_py_test(
     name = "cross_trainer_cache_test",
     size = "medium",
     srcs = ["cross_trainer_cache_test.py"],
-    shard_count = 4,
+    shard_count = 8,
     deps = [
         ":test_base",
         "//tensorflow/python/data/experimental/ops:data_service_ops",

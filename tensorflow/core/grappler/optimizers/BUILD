@@ -1,20 +1,20 @@
 load("//tensorflow/core/platform:rules_cc.bzl", "cc_library")
 load("//tensorflow:tensorflow.bzl", "tf_cc_test", "tf_cc_test_mkl", "tf_copts", "tf_cuda_cc_test")
 load("//third_party/mkl:build_defs.bzl", "if_mkl")
-
-# buildifier: disable=same-origin-load
-load("//tensorflow:tensorflow.bzl", "filegroup")
-
-# buildifier: disable=same-origin-load
-load("//tensorflow:tensorflow.bzl", "tf_kernel_library")
+load("//tensorflow:tensorflow.default.bzl", "filegroup", "tf_kernel_library")
 
 # Platform specific build config
 load(
     "//tensorflow/core/platform:build_config_root.bzl",
     "if_static",
 )
+load(
+    "@local_config_rocm//rocm:build_defs.bzl",
+    "if_rocm_is_configured",
+)
 
 package(
+    # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
     features = ["-layering_check"],
     licenses = ["notice"],
 )
@@ -589,6 +589,8 @@ cc_library(
         "//tensorflow/core/grappler/costs:virtual_placer",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
     ],
 )
 
@@ -716,14 +718,8 @@ cc_library(
         "//tensorflow/core/platform:status",
         "//tensorflow/core/protobuf:for_core_protos_cc",
         "//tensorflow/core/transforms:PassRegistration",
-        "//tensorflow/core/transforms/func_to_graph:FuncToGraph",
-        "//tensorflow/core/transforms/graph_to_func:GraphToFunc",
-        "@com_google_absl//absl/strings",
         "@llvm-project//llvm:Support",
-        "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
-        "@llvm-project//mlir:Support",
-        "@llvm-project//mlir:Transforms",
     ],
 )
 
@@ -736,7 +732,6 @@ tf_cc_test(
         "//tensorflow/cc:scope",
         "//tensorflow/core:test",
         "//tensorflow/core:test_main",
-        "//tensorflow/core/framework:tensor_testutil",
         "//tensorflow/core/grappler:grappler_item",
         "@llvm-project//mlir:Pass",
     ],
@@ -1175,7 +1170,12 @@ cc_library(
         "//tensorflow/core/grappler/clusters:cluster",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
-    ],
+    ] + if_static(
+        ["//tensorflow/core/platform:tensor_float_32_utils"],
+        ["//tensorflow/core/platform:tensor_float_32_hdr_lib"],
+    ) + if_rocm_is_configured([
+        "//tensorflow/core/platform:stream_executor",
+    ]),
 )
 
 tf_cuda_cc_test(

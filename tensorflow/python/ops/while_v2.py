@@ -22,6 +22,7 @@ performance parity.
 import collections
 
 from tensorflow.core.framework import attr_value_pb2
+from tensorflow.core.function.capture import capture_container
 from tensorflow.python.client import pywrap_tf_session as c_api
 from tensorflow.python.eager import backprop_util
 from tensorflow.python.framework import auto_control_deps_utils as acd
@@ -49,6 +50,7 @@ from tensorflow.python.ops import while_v2_indexed_slices_rewriter
 from tensorflow.python.util import compat
 from tensorflow.python.util import nest
 from tensorflow.python.util import object_identity
+from tensorflow.python.util import variable_utils
 
 # pylint: disable=protected-access
 
@@ -77,6 +79,7 @@ def while_loop(cond,
                return_same_structure=True,
                back_prop=True):
   """Like tf.while_loop, except emits a single While op."""
+  loop_vars = variable_utils.convert_variables_to_tensors(loop_vars)
   # Keep the original loop_vars around to know which args were TensorArrays.
   orig_loop_vars = loop_vars
   flat_orig_loop_vars = nest.flatten(orig_loop_vars, expand_composites=True)
@@ -88,7 +91,8 @@ def while_loop(cond,
   # `wrapped_body` below.
   loop_vars = _tensor_array_to_flow(loop_vars)
   loop_vars = nest.map_structure(
-      ops.internal_convert_to_tensor_or_indexed_slices, loop_vars,
+      indexed_slices.internal_convert_to_tensor_or_indexed_slices,
+      loop_vars,
       expand_composites=True)
 
   # `loop_vars_signature` is a structure of TypeSpecs and has the same
@@ -197,13 +201,20 @@ def while_loop(cond,
       # structure of `loop_vars_signature`.
       outputs = body(
           *_pack_sequence_as(loop_vars_signature, flat_orig_loop_vars, args))
-      if not nest.is_nested_or_composite(outputs):
+      if not nest.is_nested(outputs):
         outputs = [outputs]
-      # Compare the structure of input and output of body converting the
-      # top-level tuples to list to be compatible with legacy while_loop.
-      nest.assert_same_structure(list(outputs), list(orig_loop_vars),
-                                 expand_composites=True)
-
+      try:
+        # The legacy while_loop considers list and tuple to be the same
+        # structure.
+        nest.assert_same_structure(outputs, orig_loop_vars, check_types=False,
+                                   expand_composites=True)
+      except ValueError:
+        # Traditionally we consider variables and tensors to be the same
+        # structure.
+        vars1 = variable_utils.convert_variables_to_tensors(outputs)
+        vars2 = variable_utils.convert_variables_to_tensors(orig_loop_vars)
+        nest.assert_same_structure(vars1, vars2, check_types=False,
+                                   expand_composites=True)
       outputs = _tensor_array_to_flow(outputs)
 
       # TODO(srbs): Update lowering code to create _Enter nodes with
@@ -289,7 +300,8 @@ def while_loop(cond,
     _check_inputs_outputs_types_match(body_graph, flattened_loop_vars)
 
     with ops.control_dependencies(
-        list(cond_graph.control_captures) + list(body_graph.control_captures)):
+        list(cond_graph._function_captures.control) + list(  # pylint: disable=protected-access
+            body_graph._function_captures.control)):  # pylint: disable=protected-access
       output_shapes = [t.shape for t in body_graph.outputs]
       orig_loop_vars_range = slice(first_loop_var_index,
                                    first_loop_var_index + num_flattened_outputs)
@@ -1126,7 +1138,7 @@ class _WhileBodyGradFuncGraph(util.WhileBodyFuncGraph):
       return captured_tensor
 
     if tensor.graph is not self._forward_graph:
-      already_captured = self.captured(tensor)
+      already_captured = id(tensor) in self._function_captures.by_val_captures  # pylint: disable=protected-access
       captured_tensor = super(_WhileBodyGradFuncGraph, self)._capture_helper(
           tensor, name)
       if not already_captured:
@@ -1333,12 +1345,12 @@ def _duplicate_body_captures_in_cond(cond_graph, body_graph_captures):
   # `Graph._names_in_use` a trie so that we can find a unique prefix.
   # TODO(b/143286622): This should not be required once captures are separated
   # from regular loop vars.
-  placeholders = c_api.TF_CreatePlaceholders(
-      cond_graph._c_graph, types,
-      compat.as_str(_build_cond_placeholders_name_prefix(cond_graph)))
+  with cond_graph._c_graph.get() as c_graph:
+    placeholders = c_api.TF_CreatePlaceholders(
+        c_graph, types,
+        compat.as_str(_build_cond_placeholders_name_prefix(cond_graph)))
   placeholder_ops = [
-      _OperationWithOutputs(ph.oper, cond_graph)
-      for ph in placeholders
+      ops.Operation._from_c_op(ph.oper, cond_graph) for ph in placeholders
   ]
 
   tensors = []
@@ -1351,19 +1363,15 @@ def _duplicate_body_captures_in_cond(cond_graph, body_graph_captures):
   # newly created placeholders.
   tuples = zip(body_graph_captures, tensors)
   keys = [id(t) for t in body_graph_captures]
-  cond_graph._captures.update(zip(keys, tuples))
+  for k, v in zip(keys, tuples):
+    capture = capture_container.CaptureContainer(v[0], v[1], k, False)
+    cond_graph._function_captures._by_val[k] = capture  # pylint: disable=protected-access
   cond_graph.inputs.extend(tensors)
 
 
 def _copy_handle_data(src_tensors, tgt_tensors):
   for src_t, tgt_t in zip(src_tensors, tgt_tensors):
     handle_data_util.copy_handle_data(src_t, tgt_t)
-
-
-def _graph_name(graph):
-  if isinstance(graph, func_graph_module.FuncGraph):
-    return graph.name
-  return "Base"
 
 
 def _pack_sequence_as(loop_vars_signature, flat_orig_loop_vars, loop_vars):
@@ -1410,30 +1418,6 @@ def _build_accumulator_name(tensor):
 def _is_loop_invariant(tensor, inputs, outputs):
   return (any(tensor is t for t in inputs) and
           any(tensor is t for t in outputs))
-
-
-class _OperationWithOutputs(ops.Operation):
-  """Operation with pre-built `TF_Output`s.
-
-  The C API for creating the extra placeholders for the cond graph returns
-  SWIG wrapped TF_Output* pointers which we can use directly for
-  `Operation.outputs`. The default constructor for `Operation` does not provide
-  a way of specifying pre-built output tensors and always creates them. This is
-  a performance overhead. It is not clear if adding that feature to the
-  `Operation` API would be generally useful so for now we just have our own
-  lightweight `Operation` implementation. Note that this does not extract a
-  stacktrace as well since we don't expect this operation to be used.
-
-  TODO(b/143286622): This should not be required once captures are separated
-  from regular loop vars.
-  """
-
-  def __init__(self, c_op, g):
-    self._c_op = c_op
-    self._graph = g
-    self._outputs = None  # Initialized by _duplicate_body_captures_in_cond().
-    self._id_value = g._add_op(self, self.name)
-    self._is_stateful = False
 
 
 def _set_read_only_resource_inputs_attr(op, branch_graphs):

@@ -19,9 +19,10 @@ import unittest
 
 from absl.testing import parameterized
 import numpy as np
-import six
 
 from tensorflow.python import tf2
+from tensorflow.python.checkpoint import checkpoint as trackable
+from tensorflow.python.checkpoint import graph_view
 from tensorflow.python.checkpoint import util as checkpoint_util
 from tensorflow.python.client import session
 from tensorflow.python.data.experimental.ops import counter
@@ -29,7 +30,6 @@ from tensorflow.python.data.ops import dataset_ops
 from tensorflow.python.eager import backprop
 from tensorflow.python.eager import context
 from tensorflow.python.eager import def_function
-from tensorflow.python.eager import function
 from tensorflow.python.eager import wrap_function
 from tensorflow.python.framework import constant_op
 from tensorflow.python.framework import dtypes
@@ -41,6 +41,7 @@ from tensorflow.python.framework import test_ops
 from tensorflow.python.framework import test_util
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import control_flow_ops
+from tensorflow.python.ops import gen_lookup_ops
 from tensorflow.python.ops import lookup_ops
 from tensorflow.python.ops import map_fn
 from tensorflow.python.ops import variables
@@ -48,11 +49,10 @@ from tensorflow.python.ops.ragged import ragged_tensor
 from tensorflow.python.platform import test
 from tensorflow.python.saved_model import load as saved_model_load
 from tensorflow.python.saved_model import save as saved_model_save
+from tensorflow.python.trackable import asset
+from tensorflow.python.trackable import autotrackable
 from tensorflow.python.training import saver
 from tensorflow.python.training import server_lib
-from tensorflow.python.training.tracking import graph_view
-from tensorflow.python.training.tracking import tracking
-from tensorflow.python.training.tracking import util as trackable
 from tensorflow.python.util import compat
 
 
@@ -460,7 +460,7 @@ class StaticHashTableTest(BaseLookupTableTest, parameterized.TestCase):
         "n/a",
         experimental_is_anonymous=is_anonymous)
 
-    @function.defun()
+    @def_function.function
     def lookup_table_func(k):
       return table.lookup(k)
 
@@ -475,7 +475,7 @@ class StaticHashTableTest(BaseLookupTableTest, parameterized.TestCase):
     keys = constant_op.constant([0, 1, 2], dtypes.int32)
     values = constant_op.constant(["brain", "salad", "surgery"])
 
-    @function.defun()
+    @def_function.function
     def lookup_table_func(k):
       table = self.getHashTable()(
           lookup_ops.KeyValueTensorInitializer(keys, values),
@@ -574,6 +574,20 @@ class StaticHashTableTest(BaseLookupTableTest, parameterized.TestCase):
     self.evaluate(lookup_ops.tables_initializer())
     self.assertAllEqual(grad, -10.)
 
+  def testImportShapeInference(self, is_anonymous):
+    v = variables.Variable(1)
+
+    @def_function.function(jit_compile=True)
+    def foo():
+      return gen_lookup_ops.lookup_table_import_v2(
+          table_handle=v.handle, keys=[1.1, 2.2], values=1
+      )
+
+    with self.assertRaisesRegex(
+        ValueError, r"Shape must be at least rank 1 but is rank 0"
+    ):
+      foo()
+
   def testExportShapeInference(self, is_anonymous):
     table = self.getHashTable()(
         lookup_ops.KeyValueTensorInitializer(
@@ -600,7 +614,7 @@ class StaticHashTableTest(BaseLookupTableTest, parameterized.TestCase):
     save_dir = os.path.join(self.get_temp_dir(), "save_restore")
     save_path = os.path.join(tempfile.mkdtemp(prefix=save_dir), "hash")
 
-    root = tracking.AutoTrackable()
+    root = autotrackable.AutoTrackable()
 
     default_value = -1
     keys = constant_op.constant([11, 12, 13], dtypes.int64)
@@ -1268,7 +1282,7 @@ class StaticVocabularyTableTest(BaseLookupTableTest):
         oov_buckets,
         experimental_is_anonymous=is_anonymous)
     objects = checkpoint_util.list_objects(graph_view.ObjectGraphView(table))
-    assets = list(filter(lambda obj: isinstance(obj, tracking.Asset), objects))
+    assets = list(filter(lambda obj: isinstance(obj, asset.Asset), objects))
     self.assertLen(assets, 1)
     self.assertEqual(
         self.evaluate(assets[0].asset_path), compat.as_bytes(vocab_file))
@@ -1446,7 +1460,7 @@ class StaticVocabularyTableTest(BaseLookupTableTest):
     save_dir = os.path.join(self.get_temp_dir(), "save_restore")
     save_path = os.path.join(tempfile.mkdtemp(prefix=save_dir), "hash")
 
-    root = tracking.AutoTrackable()
+    root = autotrackable.AutoTrackable()
 
     vocab_file = self._createVocabFile("feat_to_id_3.txt", ("11", "12", "13"))
     vocab_size = 3
@@ -1862,7 +1876,7 @@ class DenseHashTableOpTest(test.TestCase):
       self.assertAllEqual(32, len(table.export()[0].eval()))
 
       val = save.save(sess, save_path)
-      self.assertIsInstance(val, six.string_types)
+      self.assertIsInstance(val, str)
       self.assertEqual(save_path, val)
 
     with self.session(graph=ops.Graph()) as sess:
@@ -1931,7 +1945,7 @@ class DenseHashTableOpTest(test.TestCase):
       self.assertAllEqual(32, len(table.export()[0].eval()))
 
       val = save.save(sess, save_path)
-      self.assertIsInstance(val, six.string_types)
+      self.assertIsInstance(val, str)
       self.assertEqual(save_path, val)
 
     with self.session(graph=ops.Graph()) as sess:
@@ -2030,7 +2044,7 @@ class DenseHashTableOpTest(test.TestCase):
     save_dir = os.path.join(self.get_temp_dir(), "save_restore")
     save_path = os.path.join(tempfile.mkdtemp(prefix=save_dir), "hash")
 
-    root = tracking.AutoTrackable()
+    root = autotrackable.AutoTrackable()
 
     default_value = -1
     empty_key = 0
@@ -2122,7 +2136,7 @@ class DenseHashTableOpTest(test.TestCase):
       self.assertAllEqual(32, len(table.export()[0].eval()))
 
       val = save.save(sess, save_path)
-      self.assertIsInstance(val, six.string_types)
+      self.assertIsInstance(val, str)
       self.assertEqual(save_path, val)
 
     with self.session(graph=ops.Graph()) as sess:
@@ -2197,7 +2211,7 @@ class DenseHashTableOpTest(test.TestCase):
       self.assertAllEqual(32, len(table.export()[0].eval()))
 
       val = save.save(sess, save_path)
-      self.assertIsInstance(val, six.string_types)
+      self.assertIsInstance(val, str)
       self.assertEqual(save_path, val)
 
     with self.session(graph=ops.Graph()) as sess:
@@ -3414,7 +3428,7 @@ class MutableHashTableOpTest(test.TestCase):
       self.assertAllEqual(3, self.evaluate(table.size()))
 
       val = save.save(sess, save_path)
-      self.assertIsInstance(val, six.string_types)
+      self.assertIsInstance(val, str)
       self.assertEqual(save_path, val)
 
     with self.session(graph=ops.Graph()) as sess:
@@ -3483,7 +3497,7 @@ class MutableHashTableOpTest(test.TestCase):
       self.assertAllEqual(3, self.evaluate(table.size()))
 
       val = save.save(sess, save_path)
-      self.assertIsInstance(val, six.string_types)
+      self.assertIsInstance(val, str)
       self.assertEqual(save_path, val)
 
     with self.session(graph=ops.Graph()) as sess:
@@ -3585,7 +3599,7 @@ class MutableHashTableOpTest(test.TestCase):
     save_dir = os.path.join(self.get_temp_dir(), "save_restore")
     save_path = os.path.join(tempfile.mkdtemp(prefix=save_dir), "hash")
 
-    root = tracking.AutoTrackable()
+    root = autotrackable.AutoTrackable()
 
     default_value = -1
     keys = constant_op.constant([11, 12, 13], dtypes.int64)

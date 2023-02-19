@@ -15,13 +15,13 @@ limitations under the License.
 
 #include "tensorflow/compiler/xla/comparison_util.h"
 
+#include <optional>
 #include <string>
 
 #include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "tensorflow/compiler/xla/util.h"
 #include "tensorflow/compiler/xla/xla_data.pb.h"
 
@@ -55,6 +55,11 @@ bool IsValidComparison(xla::PrimitiveType type, Comparison::Order order) {
     case PRIMITIVE_TYPE_INVALID:
     case PrimitiveType_INT_MAX_SENTINEL_DO_NOT_USE_:
     case PrimitiveType_INT_MIN_SENTINEL_DO_NOT_USE_:
+    // TODO(b/259609697): Add support for comparing F8 values. F8 values are
+    // comparable like any other floating-point type, but comparisons are not
+    // yet implemented by any backend.
+    case F8E5M2:
+    case F8E4M3FN:
       return false;
   }
 }
@@ -97,6 +102,8 @@ Comparison::Order DefaultOrdering(PrimitiveType type) {
     case U32:
     case U64:
       return Comparison::Order::kTotal;
+    case F8E5M2:
+    case F8E4M3FN:
     case BF16:
     case F16:
     case F32:
@@ -250,6 +257,8 @@ Comparison::Type Comparison::DefaultComparisonType(PrimitiveType type) {
     case U32:
     case U64:
       return Type::kUnsigned;
+    case F8E5M2:
+    case F8E4M3FN:
     case F16:
     case F32:
     case BF16:
@@ -290,12 +299,12 @@ Comparison Comparison::Converse() const {
   return Comparison(xla::Converse(dir_), primitive_type_, order_);
 }
 
-absl::optional<Comparison> Comparison::Inverse() const {
+std::optional<Comparison> Comparison::Inverse() const {
   if (IsPartialOrder()) {
     // We assume comparisons don't have inverses unless they are total order,
     // e.g., a partial order floating point comparison can return true if one
     // operand is NaN.
-    return absl::nullopt;
+    return std::nullopt;
   }
   switch (primitive_type_) {
     case F16:
@@ -317,10 +326,12 @@ absl::optional<Comparison> Comparison::Inverse() const {
     case TUPLE:
     case OPAQUE_TYPE:
     case TOKEN:
+    case F8E5M2:
+    case F8E4M3FN:
     case PRIMITIVE_TYPE_INVALID:
     case PrimitiveType_INT_MAX_SENTINEL_DO_NOT_USE_:
     case PrimitiveType_INT_MIN_SENTINEL_DO_NOT_USE_:
-      return absl::nullopt;
+      return std::nullopt;
   }
 }
 

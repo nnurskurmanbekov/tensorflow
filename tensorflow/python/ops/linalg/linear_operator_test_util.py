@@ -208,6 +208,34 @@ class LinearOperatorDerivedClassTest(test.TestCase, metaclass=abc.ABCMeta):
       return self.assertRaisesRegexp(Exception, msg)
     return self.assertRaisesOpError(msg)
 
+  def check_convert_variables_to_tensors(self, operator):
+    """Checks that internal Variables are correctly converted to Tensors."""
+    self.assertIsInstance(operator, composite_tensor.CompositeTensor)
+    tensor_operator = composite_tensor.convert_variables_to_tensors(operator)
+    self.assertIs(type(operator), type(tensor_operator))
+    self.assertEmpty(tensor_operator.variables)
+    self._check_tensors_equal_variables(operator, tensor_operator)
+
+  def _check_tensors_equal_variables(self, obj, tensor_obj):
+    """Checks that Variables in `obj` have equivalent Tensors in `tensor_obj."""
+    if isinstance(obj, variables.Variable):
+      self.assertAllClose(ops.convert_to_tensor(obj),
+                          ops.convert_to_tensor(tensor_obj))
+    elif isinstance(obj, composite_tensor.CompositeTensor):
+      params = getattr(obj, "parameters", {})
+      tensor_params = getattr(tensor_obj, "parameters", {})
+      self.assertAllEqual(params.keys(), tensor_params.keys())
+      self._check_tensors_equal_variables(params, tensor_params)
+    elif nest.is_mapping(obj):
+      for k, v in obj.items():
+        self._check_tensors_equal_variables(v, tensor_obj[k])
+    elif nest.is_nested(obj):
+      for x, y in zip(obj, tensor_obj):
+        self._check_tensors_equal_variables(x, y)
+    else:
+      # We only check Tensor, CompositeTensor, and nested structure parameters.
+      pass
+
   def check_tape_safe(self, operator, skip_options=None):
     """Check gradients are not None w.r.t. operator.variables.
 
@@ -352,6 +380,7 @@ def _test_log_abs_det(use_placeholder, shapes_info, dtype):
   return test_log_abs_det
 
 
+@test_util.run_without_tensor_float_32("Use FP32 in matmul")
 def _test_operator_matmul_with_same_type(use_placeholder, shapes_info, dtype):
   """op_a.matmul(op_b), in the case where the same type is returned."""
   def test_operator_matmul_with_same_type(self):
@@ -463,6 +492,7 @@ def _test_matmul_base(
     self.assertAC(op_matmul_v, mat_matmul_v)
 
 
+@test_util.run_without_tensor_float_32("Use FP32 in matmul")
 def _test_matmul(
     use_placeholder,
     shapes_info,
@@ -483,6 +513,7 @@ def _test_matmul(
   return test_matmul
 
 
+@test_util.run_without_tensor_float_32("Use FP32 in matmul")
 def _test_matmul_with_broadcast(
     use_placeholder,
     shapes_info,
@@ -782,6 +813,7 @@ def _test_diag_part(use_placeholder, shapes_info, dtype):
   return test_diag_part
 
 
+@test_util.run_without_tensor_float_32("Use FP32 in matmul")
 def _test_composite_tensor(use_placeholder, shapes_info, dtype):
   def test_composite_tensor(self):
     with self.session(graph=ops.Graph()) as sess:
@@ -818,9 +850,11 @@ def _test_composite_tensor(use_placeholder, shapes_info, dtype):
 
       # Ensure that the `TypeSpec` can be encoded.
       nested_structure_coder.encode_structure(operator._type_spec)  # pylint: disable=protected-access
+
   return test_composite_tensor
 
 
+@test_util.run_without_tensor_float_32("Use FP32 in matmul")
 def _test_saved_model(use_placeholder, shapes_info, dtype):
   def test_saved_model(self):
     with self.session(graph=ops.Graph()) as sess:

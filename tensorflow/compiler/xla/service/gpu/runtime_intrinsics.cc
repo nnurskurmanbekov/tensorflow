@@ -21,20 +21,14 @@ limitations under the License.
 #include "absl/cleanup/cleanup.h"
 #include "tensorflow/compiler/xla/service/custom_call_status.h"
 #include "tensorflow/compiler/xla/service/custom_call_target_registry.h"
+#include "tensorflow/compiler/xla/service/platform_util.h"
 #include "tensorflow/compiler/xla/shape.h"
 #include "tensorflow/compiler/xla/shape_util.h"
 #include "tensorflow/compiler/xla/status.h"
 #include "tensorflow/compiler/xla/statusor.h"
+#include "tensorflow/compiler/xla/stream_executor/multi_platform_manager.h"
+#include "tensorflow/compiler/xla/stream_executor/stream.h"
 #include "tensorflow/compiler/xla/util.h"
-#include "tensorflow/stream_executor/gpu/asm_compiler.h"
-#include "tensorflow/stream_executor/multi_platform_manager.h"
-#include "tensorflow/stream_executor/stream.h"
-
-#if GOOGLE_CUDA || TENSORFLOW_USE_ROCM
-#include "tensorflow/stream_executor/gpu/gpu_executor.h"
-#include "tensorflow/stream_executor/gpu/gpu_stream.h"
-#include "tensorflow/stream_executor/gpu/gpu_types.h"
-#endif
 
 namespace xla {
 
@@ -42,8 +36,10 @@ extern const char* const kXlaGpuAssertCustomCallTag = "__xla_gpu_assert";
 
 static Status AssertOnGpu(void* stream_handle, void* buffer,
                           absl::string_view error_msg) {
-  TF_ASSIGN_OR_RETURN(se::Platform * platform,
-                      se::MultiPlatformManager::PlatformWithName("CUDA"));
+  TF_ASSIGN_OR_RETURN(
+      se::Platform * platform,
+      se::MultiPlatformManager::PlatformWithName(absl::AsciiStrToUpper(
+          PlatformUtil::CanonicalPlatformName("gpu").value())));
   se::StreamExecutorConfig config;
   config.gpu_stream = stream_handle;
   TF_ASSIGN_OR_RETURN(se::StreamExecutor * executor,
@@ -64,7 +60,7 @@ static Status AssertOnGpu(void* stream_handle, void* buffer,
     return InternalError("%s", error_msg);
   }
 
-  return Status::OK();
+  return OkStatus();
 }
 
 static void AssertionCustomCall(void* stream_handle, void** buffers,
@@ -79,7 +75,8 @@ static void AssertionCustomCall(void* stream_handle, void** buffers,
   }
 }
 
-XLA_REGISTER_CUSTOM_CALL_TARGET_WITH_SYM(kXlaGpuAssertCustomCallTag,
-                                         AssertionCustomCall, "CUDA");
+XLA_REGISTER_CUSTOM_CALL_TARGET_WITH_SYM(
+    kXlaGpuAssertCustomCallTag, AssertionCustomCall,
+    absl::AsciiStrToUpper(PlatformUtil::CanonicalPlatformName("gpu").value()));
 
 }  // namespace xla

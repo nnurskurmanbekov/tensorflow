@@ -16,11 +16,11 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_XLA_SERVICE_HLO_MATCHERS_H_
 #define TENSORFLOW_COMPILER_XLA_SERVICE_HLO_MATCHERS_H_
 
+#include <optional>
 #include <string>
 #include <utility>
 
-#include "absl/types/optional.h"
-#include "tensorflow/compiler/xla/service/hlo_instruction.h"
+#include "tensorflow/compiler/xla/hlo/ir/hlo_instruction.h"
 #include "tensorflow/compiler/xla/service/hlo_parser.h"
 #include "tensorflow/compiler/xla/test.h"
 
@@ -141,7 +141,7 @@ class HloShapeAndLayoutMatcher
 class HloShardingMatcher
     : public ::testing::MatcherInterface<const HloInstruction*> {
  public:
-  explicit HloShardingMatcher(const absl::optional<HloSharding>& sharding)
+  explicit HloShardingMatcher(const std::optional<HloSharding>& sharding)
       : sharding_(sharding) {}
 
   bool MatchAndExplain(const HloInstruction* instruction,
@@ -149,7 +149,7 @@ class HloShardingMatcher
   void DescribeTo(std::ostream* os) const override;
 
  private:
-  absl::optional<HloSharding> sharding_;
+  std::optional<HloSharding> sharding_;
 };
 
 // Matches a Dot HLO instruction with specific LHS and RHS contracting
@@ -237,8 +237,15 @@ HLO_MATCHER(Abs);
 HLO_MATCHER(Add);
 HLO_MATCHER(AddDependency);
 HLO_MATCHER(AfterAll);
+HLO_MATCHER(AsyncStart);
+HLO_MATCHER(AsyncUpdate);
+HLO_MATCHER(AsyncDone);
 HLO_MATCHER(AllGather);
+HLO_MATCHER(AllGatherStart);
+HLO_MATCHER(AllGatherDone);
 HLO_MATCHER(AllReduce);
+HLO_MATCHER(AllReduceStart);
+HLO_MATCHER(AllReduceDone);
 HLO_MATCHER(AllToAll);
 HLO_MATCHER(And);
 HLO_MATCHER(BatchNormGrad);
@@ -310,6 +317,7 @@ HLO_MATCHER(Sign);
 HLO_MATCHER(Slice);
 HLO_MATCHER(Sort);
 HLO_MATCHER(Subtract);
+HLO_MATCHER(Tan);
 HLO_MATCHER(Tanh);
 HLO_MATCHER(Transpose);
 HLO_MATCHER(Tuple);
@@ -435,7 +443,7 @@ inline ::testing::Matcher<const ::xla::HloInstruction*> Shape(
 inline ::testing::Matcher<const ::xla::HloInstruction*> Shape(
     absl::string_view shape) {
   return ::testing::MakeMatcher(
-      new ::xla::testing::HloShapeMatcher(ParseShape(shape).ValueOrDie()));
+      new ::xla::testing::HloShapeMatcher(ParseShape(shape).value()));
 }
 inline ::testing::Matcher<const ::xla::HloInstruction*> ShapeWithLayout(
     const class Shape& shape) {
@@ -445,7 +453,7 @@ inline ::testing::Matcher<const ::xla::HloInstruction*> ShapeWithLayout(
 inline ::testing::Matcher<const ::xla::HloInstruction*> ShapeWithLayout(
     absl::string_view shape, bool minor_to_major_only = false) {
   return ::testing::MakeMatcher(new ::xla::testing::HloShapeAndLayoutMatcher(
-      ParseShape(shape).ValueOrDie(), minor_to_major_only));
+      ParseShape(shape).value(), minor_to_major_only));
 }
 
 // Verifies the value of the HloSharing against the provided sharding object.
@@ -457,13 +465,13 @@ inline ::testing::Matcher<const ::xla::HloInstruction*> Sharding(
 // Matcher for Sharding from sharding string
 inline ::testing::Matcher<const ::xla::HloInstruction*> Sharding(
     absl::string_view sharding) {
-  return ::testing::MakeMatcher(new ::xla::testing::HloShardingMatcher(
-      ParseSharding(sharding).ValueOrDie()));
+  return ::testing::MakeMatcher(
+      new ::xla::testing::HloShardingMatcher(ParseSharding(sharding).value()));
 }
 // Verifies that no HloSharding is set for an HLO instruction.
 inline ::testing::Matcher<const ::xla::HloInstruction*> NoSharding() {
   return ::testing::MakeMatcher(
-      new ::xla::testing::HloShardingMatcher(absl::nullopt));
+      new ::xla::testing::HloShardingMatcher(std::nullopt));
 }
 
 inline ::testing::Matcher<const ::xla::HloInstruction*> Dot() {

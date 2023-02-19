@@ -4,7 +4,7 @@
 load("//tensorflow:tensorflow.bzl", "tf_cc_binary")
 
 package(
-    default_visibility = ["//tensorflow/tools/tfg_graph_transforms:__subpackages__"],
+    # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
     licenses = ["notice"],
 )
 
@@ -45,6 +45,7 @@ TFG_GRAPH_TRANSFORM_DEPS = [
     "//tensorflow/core/ir/importexport:graphdef_import",
     "//tensorflow/core/ir/importexport:savedmodel_export",
     "//tensorflow/core/ir/importexport:savedmodel_import",
+    "//tensorflow/core/ir:tf_op_registry",
 ]
 
 # Description:

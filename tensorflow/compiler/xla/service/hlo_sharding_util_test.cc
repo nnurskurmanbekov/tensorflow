@@ -15,6 +15,10 @@ limitations under the License.
 
 #include "tensorflow/compiler/xla/service/hlo_sharding_util.h"
 
+#include <optional>
+#include <vector>
+
+#include "tensorflow/compiler/xla/hlo/ir/hlo_instruction.h"
 #include "tensorflow/compiler/xla/test.h"
 #include "tensorflow/compiler/xla/xla_data.pb.h"
 
@@ -49,7 +53,7 @@ TEST(HloShardingUtilTest, ReshapeShardingMaximal) {
   Shape input_shape = ShapeUtil::MakeShape(F32, {2, 3, 5});
   Shape output_shape = ShapeUtil::MakeShape(F32, {3, 5, 2});
   HloSharding sharding = HloSharding::AssignDevice(7);
-  absl::optional<HloSharding> result =
+  std::optional<HloSharding> result =
       ReshapeSharding(input_shape, output_shape, sharding);
   EXPECT_TRUE(result.has_value());
   EXPECT_EQ(result.value(), sharding);
@@ -59,7 +63,7 @@ TEST(HloShardingUtilTest, ReshapeShardingTiledInvalid) {
   Shape input_shape = ShapeUtil::MakeShape(F32, {2, 3, 5});
   Shape output_shape = ShapeUtil::MakeShape(F32, {3, 5, 2});
   HloSharding sharding = HloSharding::Tile(Array3D<int64_t>({{{0}, {1}}}));
-  absl::optional<HloSharding> result =
+  std::optional<HloSharding> result =
       ReshapeSharding(input_shape, output_shape, sharding);
   EXPECT_FALSE(result.has_value());
 }
@@ -70,7 +74,7 @@ TEST(HloShardingUtilTest, ReshapeShardingTiledMerge) {
   HloSharding input_sharding =
       HloSharding::Tile(Array3D<int64_t>({{{0}}, {{1}}}));
   HloSharding output_sharding = HloSharding::Tile(Array2D<int64_t>({{0}, {1}}));
-  absl::optional<HloSharding> result =
+  std::optional<HloSharding> result =
       ReshapeSharding(input_shape, output_shape, input_sharding);
   EXPECT_TRUE(result.has_value());
   EXPECT_EQ(result.value(), output_sharding);
@@ -82,7 +86,7 @@ TEST(HloShardingUtilTest, ReshapeShardingTiledSplit) {
   HloSharding input_sharding = HloSharding::Tile(Array2D<int64_t>({{0}, {1}}));
   HloSharding output_sharding =
       HloSharding::Tile(Array3D<int64_t>({{{0}}, {{1}}}));
-  absl::optional<HloSharding> result =
+  std::optional<HloSharding> result =
       ReshapeSharding(input_shape, output_shape, input_sharding);
   EXPECT_TRUE(result.has_value());
   EXPECT_EQ(result.value(), output_sharding);
@@ -96,7 +100,7 @@ TEST(HloShardingUtilTest, ReshapeShardingTiledSplit2) {
   HloSharding input_sharding = HloSharding::Tile(tile);
   tile.Reshape({4, 4, 1});
   HloSharding output_sharding = HloSharding::Tile(tile);
-  absl::optional<HloSharding> result =
+  std::optional<HloSharding> result =
       ReshapeSharding(input_shape, output_shape, input_sharding);
   EXPECT_TRUE(result.has_value());
   EXPECT_EQ(result.value(), output_sharding);
@@ -109,7 +113,7 @@ TEST(HloShardingUtilTest, ReshapeShardingTiledSplitThenMerge) {
       HloSharding::Tile(Array3D<int64_t>({{{0}}, {{1}}}));
   HloSharding output_sharding =
       HloSharding::Tile(Array3D<int64_t>({{{0}}, {{1}}}));
-  absl::optional<HloSharding> result =
+  std::optional<HloSharding> result =
       ReshapeSharding(input_shape, output_shape, input_sharding);
   EXPECT_TRUE(result.has_value());
   EXPECT_EQ(result.value(), output_sharding);
@@ -122,7 +126,7 @@ TEST(HloShardingUtilTest, ReshapeShardingTiledArbitraryMinorDimensions) {
   sharding_array(0, 0, 0, 0) = 0;
   sharding_array(1, 0, 0, 0) = 1;
   HloSharding sharding = HloSharding::Tile(sharding_array);
-  absl::optional<HloSharding> result =
+  std::optional<HloSharding> result =
       ReshapeSharding(input_shape, output_shape, sharding);
   EXPECT_TRUE(result.has_value());
   EXPECT_EQ(result.value(), sharding);
@@ -135,7 +139,7 @@ TEST(HloShardingUtilTest, ReshapeShardingTiledTrivialDimensions) {
       HloSharding::Tile(Array4D<int64_t>({{{{0}, {1}}}}));
   HloSharding output_sharding =
       HloSharding::Tile(Array4D<int64_t>({{{{0}}, {{1}}}}));
-  absl::optional<HloSharding> result =
+  std::optional<HloSharding> result =
       ReshapeSharding(input_shape, output_shape, input_sharding);
   EXPECT_TRUE(result.has_value());
   EXPECT_EQ(result.value(), output_sharding);
@@ -147,7 +151,7 @@ TEST(HloShardingUtilTest, ReshapeShardingTrivialDImensionInsertedToEnd) {
   HloSharding input_sharding = HloSharding::Tile(Array2D<int64_t>({{0}, {1}}));
   HloSharding output_sharding =
       HloSharding::Tile(Array3D<int64_t>({{{0}}, {{1}}}));
-  absl::optional<HloSharding> result =
+  std::optional<HloSharding> result =
       ReshapeSharding(input_shape, output_shape, input_sharding);
   EXPECT_TRUE(result.has_value());
   EXPECT_EQ(result.value(), output_sharding);
@@ -156,7 +160,7 @@ TEST(HloShardingUtilTest, ReshapeShardingTrivialDImensionInsertedToEnd) {
 TEST(HloShardingUtilTest, NoopReshapeShardingEmptyTile) {
   Shape shape = ShapeUtil::MakeShape(F32, {7, 1, 1});
   HloSharding sharding = HloSharding::Tile(Array3D<int64_t>({{{0}, {1}}}));
-  absl::optional<HloSharding> result = ReshapeSharding(shape, shape, sharding);
+  std::optional<HloSharding> result = ReshapeSharding(shape, shape, sharding);
   EXPECT_TRUE(result.has_value());
   EXPECT_EQ(result.value(), sharding);
 }
@@ -165,7 +169,7 @@ TEST(HloShardingUtilTest, ReshapeShardingScalar) {
   Shape input_shape = ShapeUtil::MakeShape(F32, {1, 1, 1});
   Shape output_shape = ShapeUtil::MakeShape(F32, {});
   HloSharding sharding = HloSharding::Tile(Array3D<int64_t>({{{0}, {1}}}));
-  absl::optional<HloSharding> result =
+  std::optional<HloSharding> result =
       ReshapeSharding(input_shape, output_shape, sharding);
   EXPECT_FALSE(result.has_value());
 }
@@ -444,6 +448,116 @@ TEST(HloShardingUtilTest, DeviceGroupsMatch) {
   EXPECT_TRUE(DeviceGroupsAreMatch(lhs, rhs));
 }
 
+TEST(HloShardingUtilTest, IsSubShardingTiledReplicated) {
+  HloSharding rhs_sharding = HloSharding::Replicate();
+  HloSharding lhs_sharding =
+      HloSharding::Tile(Array2D<int64_t>({{0}, {1}, {2}, {3}}));
+  Shape shape = ShapeUtil::MakeShape(F32, {129, 253});
+  EXPECT_TRUE(IsSubTilingOrEqualSharding(shape, lhs_sharding, rhs_sharding));
+}
+
+TEST(HloShardingUtilTest, IsSubShardingReplicatedTiled) {
+  HloSharding rhs_sharding =
+      HloSharding::Tile(Array2D<int64_t>({{0}, {1}, {2}, {3}}));
+  HloSharding lhs_sharding = HloSharding::Replicate();
+  Shape shape = ShapeUtil::MakeShape(F32, {129, 253});
+  EXPECT_FALSE(IsSubTilingOrEqualSharding(shape, lhs_sharding, rhs_sharding));
+}
+
+TEST(HloShardingUtilTest, IsSubShardingTiledPartialReplicated) {
+  HloSharding rhs_sharding = HloSharding::Replicate();
+  HloSharding lhs_sharding =
+      HloSharding::PartialTile(Array3D<int64_t>({{{0, 1}}, {{2, 3}}}));
+  Shape shape = ShapeUtil::MakeShape(F32, {129, 253});
+  EXPECT_TRUE(IsSubTilingOrEqualSharding(shape, lhs_sharding, rhs_sharding));
+}
+
+TEST(HloShardingUtilTest, IsSubShardingReplicatedTiledPartial) {
+  HloSharding rhs_sharding =
+      HloSharding::PartialTile(Array3D<int64_t>({{{0, 1}}, {{2, 3}}}));
+  HloSharding lhs_sharding = HloSharding::Replicate();
+  Shape shape = ShapeUtil::MakeShape(F32, {129, 253});
+  EXPECT_FALSE(IsSubTilingOrEqualSharding(shape, lhs_sharding, rhs_sharding));
+}
+
+TEST(HloShardingUtilTest, IsSubShardingPartialTiledTiled) {
+  HloSharding rhs_sharding =
+      HloSharding::PartialTile(Array3D<int64_t>({{{0, 1}}, {{2, 3}}}));
+  HloSharding lhs_sharding =
+      HloSharding::Tile(Array3D<int64_t>({{{0}, {1}}, {{2}, {3}}}));
+  Shape shape = ShapeUtil::MakeShape(F32, {129, 253});
+  EXPECT_FALSE(IsSubTilingOrEqualSharding(shape, lhs_sharding, rhs_sharding));
+}
+
+TEST(HloShardingUtilTest, IsSubShardingIncompatibleTiled) {
+  HloSharding rhs_sharding =
+      HloSharding::Tile(Array2D<int64_t>({{0}, {1}, {2}, {3}}));
+  HloSharding lhs_sharding =
+      HloSharding::Tile(Array2D<int64_t>({{0, 1, 2, 3}}));
+  Shape shape = ShapeUtil::MakeShape(F32, {129, 253});
+  EXPECT_FALSE(IsSubTilingOrEqualSharding(shape, lhs_sharding, rhs_sharding));
+}
+
+TEST(HloShardingUtilTest, IsSubShardingIncompatibleShapeTiledPartialTiled) {
+  HloSharding rhs_sharding =
+      HloSharding::PartialTile(Array3D<int64_t>({{{0, 1}}, {{2, 3}}}));
+  HloSharding lhs_sharding =
+      HloSharding::Tile(Array2D<int64_t>({{0}, {1}, {2}, {3}}));
+  Shape shape = ShapeUtil::MakeShape(F32, {129, 253});
+  EXPECT_FALSE(IsSubTilingOrEqualSharding(shape, lhs_sharding, rhs_sharding));
+}
+
+TEST(HloShardingUtilTest, IsSubShardingCompatibleShapeTiledPartialTiled) {
+  HloSharding rhs_sharding =
+      HloSharding::PartialTile(Array3D<int64_t>({{{0, 1}}, {{2, 3}}}));
+  HloSharding lhs_sharding =
+      HloSharding::Tile(Array2D<int64_t>({{0}, {1}, {2}, {3}}));
+  Shape shape = ShapeUtil::MakeShape(F32, {128, 253});
+  EXPECT_TRUE(IsSubTilingOrEqualSharding(shape, lhs_sharding, rhs_sharding));
+}
+
+TEST(HloShardingUtilTest, IsSortOperandShardingMovableRankTwoOneFreeDim) {
+  HloIotaInstruction iota(ShapeUtil::MakeShape(F32, {8, 128}), 1);
+  Array<int64_t> tile_assignment({1, 2});
+  tile_assignment.FillIota(0);
+  iota.set_sharding(HloSharding::Tile(tile_assignment));
+  EXPECT_TRUE(IsSortOperandShardingMovable(&iota, 1));
+}
+
+TEST(HloShardingUtilTest, IsSortOperandShardingMovableRankTwoNoFreeDims) {
+  HloIotaInstruction iota(ShapeUtil::MakeShape(F32, {8, 128}), 1);
+  Array<int64_t> tile_assignment({2, 2});
+  tile_assignment.FillIota(0);
+  iota.set_sharding(HloSharding::Tile(tile_assignment));
+  EXPECT_FALSE(IsSortOperandShardingMovable(&iota, 1));
+}
+
+TEST(HloShardingUtilTest, IsSortOperandShardingMovableRankOne) {
+  HloIotaInstruction iota(ShapeUtil::MakeShape(F32, {1024}), 1);
+  Array<int64_t> tile_assignment({2});
+  tile_assignment.FillIota(0);
+  iota.set_sharding(HloSharding::Tile(tile_assignment));
+  EXPECT_FALSE(IsSortOperandShardingMovable(&iota, 0));
+}
+
+TEST(HloShardingUtilTest, IsSortOperandShardingMovableNoSharding) {
+  HloIotaInstruction iota(ShapeUtil::MakeShape(F32, {1024}), 1);
+  EXPECT_FALSE(IsSortOperandShardingMovable(&iota, 0));
+}
+
+TEST(HloShardingUtilTest, IsSortOperandShardingMovableReplicated) {
+  HloIotaInstruction iota(ShapeUtil::MakeShape(F32, {8, 128}), 1);
+  iota.set_sharding(HloSharding::Replicate());
+  EXPECT_FALSE(IsSortOperandShardingMovable(&iota, 1));
+}
+
+TEST(HloShardingUtilTest, IsSortOperandShardingMovableSortDimUnsharded) {
+  HloIotaInstruction iota(ShapeUtil::MakeShape(F32, {8, 128}), 1);
+  Array<int64_t> tile_assignment({1, 2});
+  tile_assignment.FillIota(0);
+  iota.set_sharding(HloSharding::Tile(tile_assignment));
+  EXPECT_FALSE(IsSortOperandShardingMovable(&iota, 0));
+}
 }  // namespace
 }  // namespace hlo_sharding_util
 }  // namespace xla

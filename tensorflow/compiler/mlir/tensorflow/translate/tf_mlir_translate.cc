@@ -38,6 +38,7 @@ limitations under the License.
 #include "tensorflow/core/platform/errors.h"
 #include "tensorflow/core/platform/protobuf.h"
 #include "tensorflow/core/protobuf/graph_debug_info.pb.h"
+#include "tensorflow/core/util/tensor_bundle/byte_swap_tensor.h"
 
 namespace tensorflow {
 
@@ -54,6 +55,8 @@ static StatusOr<mlir::OwningOpRef<mlir::ModuleOp>> GraphdefToMlirImport(
   GraphDef graphdef;
   TF_RETURN_IF_ERROR(
       tensorflow::LoadProtoFromBuffer({input.data(), input.size()}, &graphdef));
+  if (!port::kLittleEndian)
+    TF_RETURN_IF_ERROR(ByteSwapTensorContentInGraphDef(&graphdef));
 
   GraphDebugInfo debug_info;
   if (!debug_info_file.empty()) {
@@ -224,7 +227,7 @@ SavedModelSignatureDefsToMlirImportLite(
     return status;
   }
 
-  absl::optional<absl::Span<const std::string>> optional_exported_names;
+  std::optional<absl::Span<const std::string>> optional_exported_names;
   if (!exported_names.empty()) optional_exported_names = exported_names;
 
   // TODO(b/186898924): debug info in the savedmodel should not be ignored and
@@ -258,7 +261,7 @@ GraphdefToSplattedMlirTranslateFunction(
     LOG(ERROR) << "Graph import failed: " << module_or.status();
     return module_or.status();
   }
-  auto& module = module_or.ValueOrDie();
+  auto& module = module_or.value();
   std::srand(0);
   for (auto fn : module->getOps<mlir::func::FuncOp>()) {
     for (auto& bb : fn) {

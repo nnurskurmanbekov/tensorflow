@@ -37,7 +37,7 @@ Status ValidateResultShape(const Shape& client_shape,
         ShapeUtil::HumanStringWithLayout(client_shape),
         ShapeUtil::HumanString(result_shape));
   }
-  return Status::OK();
+  return OkStatus();
 }
 }  // namespace
 
@@ -45,8 +45,8 @@ StatusOr<std::unique_ptr<HloModuleConfig>> CreateModuleConfig(
     const ProgramShape& program_shape,
     absl::Span<const Shape* const> argument_shapes,
     const ExecutionOptions* execution_options, int default_num_replicas,
-    absl::optional<int> num_threads, const AotCompilationOptions* aot_options) {
-  auto config = absl::make_unique<HloModuleConfig>(program_shape);
+    std::optional<int> num_threads, const AotCompilationOptions* aot_options) {
+  auto config = std::make_unique<HloModuleConfig>(program_shape);
   ComputationLayout* computation_layout =
       config->mutable_entry_computation_layout();
   const int64_t argument_shapes_size = argument_shapes.size();
@@ -95,6 +95,11 @@ StatusOr<std::unique_ptr<HloModuleConfig>> CreateModuleConfig(
     }
     config->set_use_spmd_partitioning(
         execution_options->use_spmd_partitioning());
+    if (!execution_options->allow_spmd_sharding_propagation_to_output()
+             .empty()) {
+      config->set_allow_spmd_sharding_propagation_to_output(
+          execution_options->allow_spmd_sharding_propagation_to_output());
+    }
     config->set_use_auto_spmd_partitioning(
         execution_options->use_auto_spmd_partitioning());
     std::vector<int64_t> mesh_shape;
@@ -111,6 +116,14 @@ StatusOr<std::unique_ptr<HloModuleConfig>> CreateModuleConfig(
     config->set_seed(execution_options->seed());
     config->set_launch_id(execution_options->launch_id());
     config->set_debug_options(execution_options->debug_options());
+    if (execution_options->has_device_assignment()) {
+      TF_ASSIGN_OR_RETURN(auto device_assignment,
+                          DeviceAssignment::Deserialize(
+                              execution_options->device_assignment()));
+      config->set_static_device_assignment(*device_assignment);
+    }
+    config->set_alias_passthrough_params(
+        execution_options->alias_passthrough_params());
   } else {
     config->set_replica_count(default_num_replicas);
     config->set_debug_options(GetDebugOptionsFromFlags());
@@ -119,16 +132,6 @@ StatusOr<std::unique_ptr<HloModuleConfig>> CreateModuleConfig(
   if (num_threads.has_value()) {
     config->set_intra_op_parallelism_threads(*num_threads);
   }
-
-  if (execution_options != nullptr &&
-      execution_options->has_device_assignment()) {
-    TF_ASSIGN_OR_RETURN(
-        auto device_assignment,
-        DeviceAssignment::Deserialize(execution_options->device_assignment()));
-    config->set_static_device_assignment(*device_assignment);
-  }
-  config->set_alias_passthrough_params(
-      execution_options->alias_passthrough_params());
 
   if (aot_options != nullptr) {
     config->set_matrix_unit_operand_precision(

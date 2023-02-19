@@ -1,9 +1,7 @@
-load("//tensorflow:tensorflow.bzl", "tf_python_pybind_extension")
-
-# buildifier: disable=same-origin-load
-load("//tensorflow:tensorflow.bzl", "tf_py_test")
+load("//tensorflow:tensorflow.default.bzl", "tf_py_test", "tf_python_pybind_extension")
 
 package(
+    # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
     default_visibility = ["//tensorflow:internal"],
     licenses = ["notice"],
 )
@@ -17,6 +15,7 @@ tf_python_pybind_extension(
         "//tensorflow/python:pybind11_lib",
         "//tensorflow/python:pybind11_status",
         "//third_party/python_runtime:headers",
+        "@com_google_absl//absl/strings",
         "@pybind11",
     ],
 )

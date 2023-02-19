@@ -1,7 +1,10 @@
 # Description:
 #   Low-level utilities for reading and writing checkpoints.
 
+load("//tensorflow:tensorflow.default.bzl", "tf_py_test")
+
 package(
+    # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
     default_visibility = [
         "//tensorflow:internal",
     ],
@@ -25,7 +28,6 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":checkpoint_options",
-        ":saveable_hook",
         ":saveable_object",
         ":saveable_object_util",
         "//tensorflow/python:util",
@@ -42,25 +44,36 @@ py_library(
 )
 
 py_library(
-    name = "saveable_hook",
-    srcs = ["saveable_hook.py"],
-    srcs_version = "PY3",
-    deps = [
-        "//tensorflow/python:constant_op",
-        "//tensorflow/python/training/tracking:base",
-    ],
-)
-
-py_library(
     name = "saveable_object_util",
     srcs = ["saveable_object_util.py"],
     srcs_version = "PY3",
     deps = [
+        ":saveable_object",
+        "//tensorflow/python:control_flow_ops_gen",
         "//tensorflow/python:resource_variable_ops",
         "//tensorflow/python:variables",
-        "//tensorflow/python/training/tracking:base",
-        "//tensorflow/python/training/tracking:trackable_utils",
+        "//tensorflow/python/checkpoint:saveable_compat",
+        "//tensorflow/python/trackable:base",
+        "//tensorflow/python/trackable:python_state",
+        "//tensorflow/python/trackable:trackable_utils",
+        "//tensorflow/python/types",
         "//tensorflow/python/util:tf_export",
-        "@six_archive//:six",
+    ],
+)
+
+tf_py_test(
+    name = "saveable_object_util_test",
+    srcs = ["saveable_object_util_test.py"],
+    deps = [
+        ":saveable_object_util",
+        "//tensorflow/python:resource_variable_ops",
+        "//tensorflow/python:variables",
+        "//tensorflow/python/checkpoint",
+        "//tensorflow/python/eager:context",
+        "//tensorflow/python/eager:test",
+        "//tensorflow/python/framework:dtypes",
+        "//tensorflow/python/framework:ops",
+        "//tensorflow/python/trackable:base",
+        "//tensorflow/python/trackable:resource",
     ],
 )

@@ -19,12 +19,12 @@ limitations under the License.
 #include <cstring>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <numeric>
 #include <string>
 #include <type_traits>
 #include <vector>
 
-#include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "tensorflow/compiler/xla/index_util.h"
@@ -32,8 +32,8 @@ limitations under the License.
 #include "tensorflow/compiler/xla/status_macros.h"
 #include "tensorflow/compiler/xla/types.h"
 #include "tensorflow/compiler/xla/util.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/platform/logging.h"
+#include "tensorflow/tsl/platform/errors.h"
+#include "tensorflow/tsl/platform/logging.h"
 
 namespace xla {
 namespace {
@@ -107,6 +107,11 @@ Literal CreateScalar(PrimitiveType primitive_type, Args... args) {
       return CreateScalarImpl<S32>(F<S32>{}, std::forward<Args>(args)...);
     case S64:
       return CreateScalarImpl<S64>(F<S64>{}, std::forward<Args>(args)...);
+    case F8E5M2:
+      return CreateScalarImpl<F8E5M2>(F<F8E5M2>{}, std::forward<Args>(args)...);
+    case F8E4M3FN:
+      return CreateScalarImpl<F8E4M3FN>(F<F8E4M3FN>{},
+                                        std::forward<Args>(args)...);
     case F16:
       return CreateScalarImpl<F16>(F<F16>{}, std::forward<Args>(args)...);
     case BF16:
@@ -307,6 +312,11 @@ void SetScalarAtIndexImpl(MutableLiteralBase& literal,
   return ConvertType<double, float>(f64_literal);
 }
 
+/* static */ Literal LiteralUtil::ConvertS32ToF32(
+    const LiteralSlice& s32_literal) {
+  return ConvertType<int32_t, float>(s32_literal);
+}
+
 /* static */ Literal LiteralUtil::CreateToken() {
   return Literal(ShapeUtil::MakeTokenShape());
 }
@@ -356,8 +366,7 @@ void SetScalarAtIndexImpl(MutableLiteralBase& literal,
   }
 }
 
-/* static */ Literal LiteralUtil::CreateR1(
-    const tensorflow::core::Bitmap& values) {
+/* static */ Literal LiteralUtil::CreateR1(const tsl::core::Bitmap& values) {
   Literal literal(
       ShapeUtil::MakeShape(PRED, {static_cast<int64_t>(values.bits())}));
   literal.PopulateR1(values);

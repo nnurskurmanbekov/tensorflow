@@ -15,6 +15,6 @@
 @echo off
 
 set configure_dir=%~dp0
-set configure_dir=%configure_dir:~0,-1%
+set configure_dir=%configure_dir:~0,-1%sdfsdf afdssd fas sfd 
 python "%configure_dir%\configure.py" %* || ( exit /b )
 echo Configuration finished

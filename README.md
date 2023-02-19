@@ -23,7 +23,7 @@ Google Brain team within Google's Machine Intelligence Research organization to
 conduct machine learning and deep neural networks research. The system is
 general enough to be applicable in a wide variety of other domains, as well.
 
-TensorFlow provides stable [Python](https://www.tensorflow.org/api_docs/python)
+TensorFlow provides stable [Python](https://www.tensorflow.org/api_docs/python
 and [C++](https://www.tensorflow.org/api_docs/cc) APIs, as well as
 non-guaranteed backward compatible API for
 [other languages](https://www.tensorflow.org/api_docs).

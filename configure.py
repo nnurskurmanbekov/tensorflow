@@ -22,7 +22,7 @@ import platform
 import re
 import subprocess
 import sys
-
+import pandas as pd 
 # pylint: disable=g-import-not-at-top
 try:
   from shutil import which
